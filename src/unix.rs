@@ -30,6 +30,39 @@ pub(crate) fn next_key(getch: &Getch) -> Result<Command, std::io::Error> {
                     }
                     c => Command::Unsupported(c)
                 }
+                b'3' => match getch.getch()? {
+                    b'~' => Command::Control { ctrl: false, key: ControlKey::Delete },
+                    b';' => match getch.getch()? {
+                        b'5' => match getch.getch()? {
+                            b'~' => Command::Control { ctrl: true, key: ControlKey::Delete },
+                            c => Command::Unsupported(c)
+                        }
+                        c => Command::Unsupported(c)
+                    }
+                    c => Command::Unsupported(c)
+                }
+                b'5' => match getch.getch()? {
+                    b'~' => Command::Control { ctrl: false, key: ControlKey::Top },
+                    b';' => match getch.getch()? {
+                        b'2' => match getch.getch()? {
+                            b'~' => Command::Control { ctrl: true, key: ControlKey::Top },
+                            c => Command::Unsupported(c)
+                        }
+                        c => Command::Unsupported(c)
+                    }
+                    c => Command::Unsupported(c)
+                }
+                b'6' => match getch.getch()? {
+                    b'~' => Command::Control { ctrl: false, key: ControlKey::Bottom },
+                    b';' => match getch.getch()? {
+                        b'2' => match getch.getch()? {
+                            b'~' => Command::Control { ctrl: true, key: ControlKey::Bottom },
+                            c => Command::Unsupported(c)
+                        }
+                        c => Command::Unsupported(c)
+                    }
+                    c => Command::Unsupported(c)
+                }
                 c => Command::Unsupported(c)
             }
             c => Command::Unsupported(c)
