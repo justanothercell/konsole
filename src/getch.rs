@@ -77,6 +77,5 @@ impl Drop for Getch {
         }
     }
     #[cfg(windows)]
-    fn drop(&mut self) {
-    }
+    fn drop(&mut self) {}
 }
