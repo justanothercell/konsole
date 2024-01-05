@@ -1,6 +1,4 @@
-use getch::Getch;
-
-use crate::input::{Command, ControlKey};
+use crate::{input::{Command, ControlKey}, getch::Getch};
 
 pub(crate) fn next_key(getch: &Getch) -> Result<Command, std::io::Error> {
     Ok(match getch.getch()? {

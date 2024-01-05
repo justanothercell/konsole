@@ -28,24 +28,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "getch"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13990e2d5b29e1770ddf7fc000afead4acb9bd8f8a9602de63bf189e261b1ba8"
-dependencies = [
- "libc",
- "termios",
-]
-
-[[package]]
 name = "konsole"
 version = "0.1.0"
 dependencies = [
  "enable-ansi-support",
- "getch",
  "lazy_static",
+ "libc",
  "signal-hook",
  "terminal_size",
+ "termios",
 ]
 
 [[package]]

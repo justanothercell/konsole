@@ -7,7 +7,12 @@ edition = "2021"
 
 [dependencies]
 enable-ansi-support = "0.2.1"
-getch = "0.3.1"
 lazy_static = "1.4.0"
-signal-hook = "0.3.17"
 terminal_size = "0.3.0"
+
+[target."cfg(windows)".dependencies]
+libc = "0.2"
+
+[target."cfg(unix)".dependencies]
+termios = "0.3.3"
+signal-hook = "0.3.17"

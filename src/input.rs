@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{KONSOLE, deactivate, Konsole};
+use crate::{KONSOLE, deactivate, Konsole, getch::Getch};
 
 #[derive(Debug)]
 pub(crate) enum ControlKey {
@@ -25,7 +25,7 @@ pub(crate) enum Command {
 
 
 pub(crate) fn handle_input() {
-    let getch = getch::Getch::new();
+    let getch = Getch::new();
     #[allow(clippy::while_immutable_condition)]
     while KONSOLE.lock().unwrap().running {
         refresh();
@@ -81,6 +81,7 @@ impl Konsole {
             }
             self.history.push_front(input.clone());
             self.history_index = 0;
+
         }
         self.queued_inputs.push(input);
     }

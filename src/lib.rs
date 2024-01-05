@@ -8,6 +8,7 @@ lazy_static! {
 }
 
 mod input;
+mod getch;
 pub mod print;
 #[cfg(windows)]
 mod windows;
