@@ -8,7 +8,7 @@ of many of the keyboard featurs the normal system `input` has, such as shift-del
 
 This crate provides its own `print!()` and `println!()` macros, requiring downstream crates to use it instead of `std::print!()` and `std::println!()`.
 Alternatively, you can use `konsole::print::printout(line: impl AsRef<str>)` to override your logger's output. Printing using methods outside of what
-this crate provides will result in unwanted behavior.
+this crate provides will result in unwanted behavior."
 
 # Basic Usage
 [example](examples/example.rs)
@@ -20,6 +20,10 @@ use std::time::Duration;
 extern crate konsole;
 
 fn main() {
+    konsole::edit_settings(|settings| {
+        settings.history_enabled = true;
+    }
+    
     konsole::activate();
     println!("hello, world from konsole!");
 
