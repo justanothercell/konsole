@@ -71,7 +71,7 @@ fn main() {
             if input.is_empty() {
                 println!();
             } else {
-                println!("inputted: {input:?}");
+                println!("received: {input:?}");
             }
         }
     }
