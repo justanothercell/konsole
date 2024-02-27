@@ -1,4 +1,4 @@
-# Konsole - Threaded Interaction
+# Konsole - Threaded Command Line Interaction
 Jealous of the minecraft console, with its ability to print and receive input simultaneously?
 Already warily side-eyeing ui alternatives? All your problems end today - with konsole!
 
@@ -23,7 +23,7 @@ fn main() {
     konsole::edit_settings(|settings| {
         settings.history_enabled = true;
     }
-    
+
     konsole::activate();
     println!("hello, world from konsole!");
 
