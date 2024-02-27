@@ -13,7 +13,7 @@ fn main() {
             let (left, right) = query.input.split_at(query.cursor_before);
             if let Some(word) = left.split(' ').last() {
                 if !word.is_empty() {
-                    let COMPLETES = ["rust", "rustacean", "rusty", "rustic"];
+                    let COMPLETES = ["rust", "rustacean", "rusty", "rustic", "help"];
                     let choices = COMPLETES.into_iter().filter(|c| c.starts_with(word)).collect::<Vec<_>>();
                     if !choices.is_empty() {
                         let mut index = query.tab_repeat % (choices.len() + 1);
