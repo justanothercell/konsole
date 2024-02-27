@@ -10,7 +10,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => {
-        $crate::__redirect_print!("\n", std::println!())
+        $crate::__redirect_print!("\n"; std::println!())
     };
     ($($arg:tt)*) => {
         $crate::__redirect_print!(std::format!("{}\n", std::format!($($arg)*)); std::println!($($arg)*))

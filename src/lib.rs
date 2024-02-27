@@ -1,10 +1,11 @@
-use std::{thread::JoinHandle, sync::Mutex, collections::VecDeque};
+use std::{thread::JoinHandle, sync::{Arc, Mutex}, collections::VecDeque};
 use input::{handle_input, refresh};
 use lazy_static::lazy_static;
 use terminal_size::{terminal_size, Width, Height};
 
 lazy_static! {
     static ref KONSOLE: Mutex<Konsole> = Mutex::new(Konsole::new());
+    static ref SETTINGS: Mutex<Settings> = Mutex::new(Settings::new());
 }
 
 mod input;
@@ -27,12 +28,11 @@ struct Konsole {
     queued_inputs: Vec<String>,
     input: String,
     temp_input: Option<String>,
-    prompt: String,
     cursor: usize,
     history: VecDeque<String>,
-    history_enabled: bool,
-    history_limit: usize,
-    history_index: usize
+    history_index: usize,
+    tab_repeat: usize,
+    cursor_before_tab: usize
 }
 
 impl Konsole {
@@ -45,12 +45,11 @@ impl Konsole {
             queued_inputs: vec![],
             input: String::new(),
             temp_input: None,
-            prompt: String::new(),
             cursor: 0,
             history: VecDeque::new(),
-            history_enabled: false,
-            history_limit: 256,
-            history_index: 0
+            history_index: 0,
+            tab_repeat: 0,
+            cursor_before_tab: 0
         }
     }
 }
@@ -94,6 +93,10 @@ pub fn is_active() -> bool {
     KONSOLE.lock().unwrap().active
 }
 
+pub fn is_locked() -> bool {
+    KONSOLE.try_lock().is_err()
+}
+
 pub fn queued_inputs() -> Vec<String> {
     std::mem::take(&mut KONSOLE.lock().unwrap().queued_inputs)
 }
@@ -106,36 +109,6 @@ pub fn size() -> (usize, usize) {
     }
 }
 
-pub fn get_prompt() -> String {
-    KONSOLE.lock().unwrap().prompt.clone()
-}
-
-pub fn set_prompt(prompt: impl Into<String>) {
-    let mut konsole = KONSOLE.lock().unwrap();
-    konsole.prompt = prompt.into();
-    if konsole.active { 
-        // dropping so that refrwsh can be called
-        drop(konsole);
-        refresh(); 
-    }
-}
-
-pub fn get_history_limit() -> usize {
-    KONSOLE.lock().unwrap().history_limit
-}
-
-pub fn set_history_limit(limit: usize) {
-    KONSOLE.lock().unwrap().history_limit = limit;
-}
-
-pub fn is_history_enabled() -> bool {
-    KONSOLE.lock().unwrap().history_enabled
-}
-
-pub fn set_history_enabled(enabled: bool) {
-    KONSOLE.lock().unwrap().history_enabled = enabled;
-}
-
 pub fn clear_input() {
     let mut konsole = KONSOLE.lock().unwrap();
     konsole.input.clear();
@@ -146,4 +119,51 @@ pub fn clear_history() {
     let mut konsole = KONSOLE.lock().unwrap();
     konsole.history.clear();
     konsole.history_index = 0;
+}
+
+#[derive(Debug, Clone)]
+pub struct Settings {
+    pub history_enabled: bool,
+    pub history_limit: usize,
+    pub prompt: String,
+    pub tab_complete: Arc<fn(query: TabQuery) -> Option<TabResult>>
+}
+
+impl Settings {
+    fn new() -> Self {
+        Self {
+            history_enabled: false,
+            history_limit: 256,
+            prompt: ">".to_string(),
+            tab_complete: Arc::new(tab_spaces)
+        }
+    }
+}
+
+pub fn edit_settings(edit: impl Fn(&mut Settings)) {
+    let mut settings = SETTINGS.lock().unwrap();
+    edit(&mut settings);
+    if KONSOLE.lock().unwrap().active {
+        refresh();
+    }
+}
+
+pub fn tab_spaces(query: TabQuery) -> Option<TabResult> {
+    Some(TabResult { output: query.input + "    ", cursor_movement: 4 })
+}
+
+pub fn tab_nothing(query: TabQuery) -> Option<TabResult> {
+    None
+}
+
+pub struct TabQuery {
+    pub input: String,
+    pub cursor_position: usize,
+    pub cursor_before: usize,
+    pub tab_repeat: usize
+}
+
+pub struct TabResult {
+    pub output: String,
+    pub cursor_movement: isize
 }

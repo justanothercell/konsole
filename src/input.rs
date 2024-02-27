@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use crate::{KONSOLE, deactivate, Konsole, getch::Getch};
+use crate::{KONSOLE, SETTINGS, deactivate, Konsole, getch::Getch, tab_nothing, TabQuery, TabResult};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum ControlKey {
     Up, Down, Left, Right,
     Start, End,
@@ -10,7 +10,7 @@ pub(crate) enum ControlKey {
     Backspace, Delete,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum Command {
     Control {
         ctrl: bool,
@@ -30,39 +30,62 @@ pub(crate) fn handle_input() {
     while KONSOLE.lock().unwrap().running {
         refresh();
         let command = crate::system::next_key(&getch).expect("could nnot getch next char");
-        //crate::println!("{command:?}");
+        let mut konsole = KONSOLE.lock().unwrap();
+        if command != Command::Tab {
+            konsole.tab_repeat = 0;
+        }
         match command {
-            Command::Control { ctrl: false, key: ControlKey::Start } => KONSOLE.lock().unwrap().move_cursor(isize::MIN),
-            Command::Control { ctrl: true, key: ControlKey::Start } => KONSOLE.lock().unwrap().delete(isize::MIN),
-            Command::Control { ctrl: false, key: ControlKey::End } => KONSOLE.lock().unwrap().move_cursor(isize::MAX),
-            Command::Control { ctrl: true, key: ControlKey::End } => KONSOLE.lock().unwrap().delete(isize::MAX),
+            Command::Control { ctrl: false, key: ControlKey::Start } => konsole.move_cursor(isize::MIN),
+            Command::Control { ctrl: true, key: ControlKey::Start } => konsole.delete(isize::MIN),
+            Command::Control { ctrl: false, key: ControlKey::End } => konsole.move_cursor(isize::MAX),
+            Command::Control { ctrl: true, key: ControlKey::End } => konsole.delete(isize::MAX),
             Command::Control { ctrl, key: ControlKey::Backspace } => {
-                let mut konsole = KONSOLE.lock().unwrap();
+                let mut konsole = konsole;
                 let w = if ctrl { -(konsole.to_boundary_left() as isize) } else { -1 };
                 konsole.delete(w);
             }
             Command::Control { ctrl, key: ControlKey::Delete } => {
-                let mut konsole = KONSOLE.lock().unwrap();
+                let mut konsole = konsole;
                 let w = if ctrl { konsole.to_boundary_right() as isize } else { 1 };
                 konsole.delete(w);
             }
             Command::Control { ctrl, key: ControlKey::Left } => {
-                let mut konsole = KONSOLE.lock().unwrap();
+                let mut konsole = konsole;
                 let w = if ctrl { -(konsole.to_boundary_left() as isize) } else { -1 };
                 konsole.move_cursor(w);
             }
             Command::Control { ctrl, key: ControlKey::Right } => {
-                let mut konsole = KONSOLE.lock().unwrap();
+                let mut konsole = konsole;
                 let w = if ctrl { konsole.to_boundary_right() as isize } else { 1 };
                 konsole.move_cursor(w);
             }
-            Command::Control { ctrl: _, key: ControlKey::Up } => KONSOLE.lock().unwrap().history_up(),
-            Command::Control { ctrl: _, key: ControlKey::Down } => KONSOLE.lock().unwrap().history_down(),
+            Command::Control { ctrl: _, key: ControlKey::Up } => konsole.history_up(),
+            Command::Control { ctrl: _, key: ControlKey::Down } => konsole.history_down(),
             Command::Control { ctrl: _, key: _ } => todo!(),
-            Command::Tab => (),
-            Command::Enter => KONSOLE.lock().unwrap().submit(),
+            Command::Tab => {
+                if konsole.tab_repeat == 0 {
+                    konsole.cursor_before_tab = konsole.cursor
+                }
+                let mut settings = SETTINGS.lock().unwrap();
+                let query = TabQuery {
+                    input: konsole.input.clone(),
+                    cursor_position: konsole.cursor,
+                    tab_repeat: konsole.tab_repeat,
+                    cursor_before: konsole.cursor_before_tab
+                };
+                let tab_complete = settings.tab_complete.clone();
+                konsole.tab_repeat += 1;
+                drop(konsole);
+                drop(settings);
+                if let Some(TabResult { output, cursor_movement }) = tab_complete(query) {
+                    let mut konsole = KONSOLE.lock().unwrap();
+                    konsole.input = output;
+                    konsole.move_cursor(cursor_movement);
+                }
+            },
+            Command::Enter => konsole.submit(),
             Command::CtrlC => { std::thread::spawn(|| deactivate(None)); break; },
-            Command::Printable(c) => KONSOLE.lock().unwrap().add_char(c),
+            Command::Printable(c) => konsole.add_char(c),
             Command::Unsupported(_) => (),
         }
     }
@@ -75,8 +98,9 @@ impl Konsole {
         self.input.clear();
         self.cursor = 0;
         self.temp_input = None;
-        if self.history_enabled && !input.is_empty() && self.history.get(0).map(|h| h != &input).unwrap_or(true){
-            if self.history.len() > self.history_limit {
+        let settings = SETTINGS.lock().unwrap();
+        if settings.history_enabled && !input.is_empty() && self.history.get(0).map(|h| h != &input).unwrap_or(true){
+            if self.history.len() > settings.history_limit {
                 self.history.pop_back();
             }
             self.history.push_front(input.clone());
@@ -88,12 +112,13 @@ impl Konsole {
 
     // note: some clones in this function used to be std::mem::take, but that caused UB/segfaults for an unknown reason
     fn history_up(&mut self) {
-        if !self.history_enabled { return; }
-        if self.history_index >= self.history_limit || self.history_index >= self.history.len() { return; }
+        let settings = SETTINGS.lock().unwrap();
+        if !settings.history_enabled { return; }
+        if self.history_index >= settings.history_limit || self.history_index >= self.history.len() { return; }
         // first move? then let's store the current input
         if self.temp_input.is_none() {
             self.temp_input = Some(self.input.clone());
-        } else if self.history_index < self.history_limit - 1 && self.history_index < self.history.len() - 1 { 
+        } else if self.history_index < settings.history_limit - 1 && self.history_index < self.history.len() - 1 { 
             self.history_index += 1;
         }
         self.input = self.history[self.history_index].clone();
@@ -103,7 +128,8 @@ impl Konsole {
 
     // note: some clones in this function used to be std::mem::take, but that caused UB/segfaults for an unknown reason
     fn history_down(&mut self) {
-        if !self.history_enabled { return; }
+        let settings = SETTINGS.lock().unwrap();
+        if !settings.history_enabled { return; }
         if self.history.is_empty() { return; }
         if self.history_index == 0 {
             if let Some(temp) = self.temp_input.take() {
@@ -174,9 +200,10 @@ impl Konsole {
 
 pub(crate) fn refresh(){
     let konsole = KONSOLE.lock().unwrap();
+    let settings = SETTINGS.lock().unwrap();
     clear_input_row(false);
-    std::print!("\r{}{}", konsole.prompt, konsole.input);
-    std::print!("\r{}{}", konsole.prompt, unsafe {konsole.input.as_str().get_unchecked(0..konsole.cursor)});
+    std::print!("\r{}{}", settings.prompt, konsole.input);
+    std::print!("\r{}{}", settings.prompt, konsole.input.as_str().get(0..konsole.cursor).unwrap());
     let _ = std::io::stdout().flush();
 }
 
